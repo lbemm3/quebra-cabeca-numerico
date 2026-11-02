@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jogo dos 15 e a paridade das permutações</title>
+<style>
+:root{
+  --ink:#1b2333; --muted:#5b6578; --paper:#f2f4f7; --card:#fff; --line:#d9dee7;
+  --tile:#1f4e8c; --tile-ink:#fff; --hole:#e3e7ee; --par:#1b7f4c; --impar:#b3261e;
+  --def:#1f4e8c; --thm:#1b7f4c; --proof:#7a5a00; --mark:#fff3cf;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --s:clamp(56px,17vw,76px);
+}
+@media (prefers-color-scheme:dark){:root{
+  --ink:#e8ecf3; --muted:#9aa5b8; --paper:#11161f; --card:#1a2130; --line:#2b3547;
+  --tile:#5b8fdc; --tile-ink:#0b1220; --hole:#0e131b; --par:#4fc88a; --impar:#ff8a80;
+  --def:#7fa9ec; --thm:#4fc88a; --proof:#e0b84d; --mark:#3a3220;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.55}
+header,main{max-width:1040px;margin:0 auto;padding:0 20px}
+header{padding-top:28px}
+h1{font-family:var(--serif);font-size:clamp(1.5rem,4vw,2.1rem);margin:0 0 4px;font-weight:700}
+.sub{margin:0 0 18px;color:var(--muted)}
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--line)}
+.tab-btn{font:inherit;font-weight:600;padding:10px 18px;background:none;border:0;border-bottom:3px solid transparent;margin-bottom:-2px;color:var(--muted);cursor:pointer}
+.tab-btn[aria-selected=true]{color:var(--tile);border-bottom-color:var(--tile)}
+button:focus-visible,select:focus-visible{outline:3px solid var(--tile);outline-offset:2px}
+.tab-content{display:none;padding:22px 0 48px}
+.tab-content.active{display:block}
+
+/* simulador */
+.sim{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:start}
+@media(max-width:820px){.sim{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px}
+.panel h2{font-family:var(--serif);font-size:1.15rem;margin:0 0 10px}
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.controls select,.controls button{font:inherit;font-size:.9rem;padding:7px 11px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.controls button{background:var(--tile);color:var(--tile-ink);border-color:var(--tile);font-weight:600}
+.controls button.alt{background:var(--card);color:var(--tile)}
+.controls button:disabled{opacity:.4;cursor:default}
+.goal{margin:0 0 12px;max-width:34ch;color:var(--muted);font-size:.92rem}
+.toggle{display:flex;gap:8px;align-items:center;margin:12px 0 8px;font-size:.9rem;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(4,var(--s));grid-auto-rows:var(--s);gap:6px;padding:6px;background:var(--hole);border-radius:8px;width:max-content;margin-bottom:14px}
+.cell{border:0;border-radius:6px;background:var(--tile);color:var(--tile-ink);font:700 1.3rem var(--sans);cursor:pointer}
+.cell.empty{background:transparent;cursor:default}
+.cell:not(.empty):hover{filter:brightness(1.12)}
+dl.status{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:.92rem}
+dl.status dt{color:var(--muted)} dl.status dd{margin:0;font-variant-numeric:tabular-nums}
+.vec{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;word-break:break-word}
+.badge{display:inline-block;padding:1px 8px;border-radius:99px;font-weight:700;font-size:.82rem;color:#fff}
+.bg-par{background:var(--par)} .bg-impar{background:var(--impar)}
+#msg{margin:12px 0 0;font-weight:600;min-height:1.5em}
+#log{max-height:520px;overflow-y:auto}
+.log-entry{padding:8px 0;border-bottom:1px solid var(--line);font-size:.88rem}
+.log-entry code{font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-word;color:var(--tile)}
+.empty-log{color:var(--muted);font-size:.9rem}
+
+/* explicação */
+.article{max-width:70ch;margin:0 auto;font-family:var(--serif);font-size:1.08rem;line-height:1.7}
+.article h2{font-size:1.55rem;margin:0 0 .3em}
+.article h3{font-size:1.2rem;margin:2.1em 0 .4em;padding-top:.8em;border-top:1px solid var(--line)}
+.article p{margin:.7em 0}
+.lead{color:var(--muted);font-size:1.12rem}
+.m{font-style:italic;white-space:nowrap}
+.eq{margin:1em 0;padding:.7em 1em;text-align:center;background:var(--card);border:1px solid var(--line);border-radius:8px;font-size:1.15rem;overflow-x:auto}
+.box{margin:1.1em 0;padding:.7em 1.1em;border-left:5px solid var(--def);background:var(--card);border-radius:0 8px 8px 0}
+.box>b:first-child{display:block;font-family:var(--sans);font-size:.85rem;color:var(--def);margin-bottom:.15em}
+.box.thm{border-color:var(--thm)} .box.thm>b:first-child{color:var(--thm)}
+.box.proof{border-color:var(--proof)} .box.proof>b:first-child{color:var(--proof)}
+.box p{margin:.4em 0}
+.pos{display:grid;grid-template-columns:repeat(4,44px);grid-auto-rows:44px;gap:4px;margin:1em auto;width:max-content}
+.pos span{display:flex;align-items:center;justify-content:center;border:1px solid var(--line);background:var(--card);border-radius:5px;font:600 .95rem var(--sans)}
+.pos span.v{background:var(--mark);border-style:dashed}
+.cap{text-align:center;color:var(--muted);font-size:.9rem;font-family:var(--sans);margin-top:-.4em}
+.disc{font-family:var(--sans);font-size:.95rem}
+.disc li{margin:.35em 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>Jogo dos 15 e a paridade das permutações</h1>
+  <p class="sub">Só duas peças fora do lugar. Você consegue ordenar o tabuleiro?</p>
+  <div class="tabs" role="tablist">
+    <button class="tab-btn" role="tab" id="t1" aria-selected="true" aria-controls="jogo-tab" onclick="switchTab('jogo-tab',this)">Simulador</button>
+    <button class="tab-btn" role="tab" id="t2" aria-selected="false" aria-controls="explicacao-tab" onclick="switchTab('explicacao-tab',this)">Explicação matemática</button>
+  </div>
+</header>
+
+<main>
+<section id="jogo-tab" class="tab-content active" role="tabpanel" aria-labelledby="t1">
+  <div class="sim">
+    <div class="panel">
+      <h2>Tabuleiro</h2>
+      <p class="goal"><b>Objetivo:</b> deixar as peças de 1 a 15 em ordem, linha por linha, com o espaço vazio no canto inferior direito. Clique em uma peça vizinha ao vazio para deslizá-la. No modo Treino, use Embaralhar e tente voltar ao tabuleiro ordenado.</p>
+      <div class="controls">
+        <select id="modo" aria-label="Modo de jogo">
+          <option value="imp">Desafio: 14 e 15 trocados</option>
+          <option value="sol">Treino: tabuleiro ordenado</option>
+        </select>
+        <button class="alt" id="btn-undo" onclick="undo()">Desfazer</button>
+        <button onclick="reset(false)">Reiniciar</button>
+        <button onclick="reset(true)">Embaralhar</button>
+      </div>
+      <div class="grid" id="grid"></div>
+      <dl class="status">
+        <dt>Estado</dt><dd class="vec" id="state-vector"></dd>
+        <dt>Inversões (vazio = 16)</dt><dd id="inv-count">0</dd>
+        <dt>Sinal da permutação</dt><dd id="perm-sign"></dd>
+      </dl>
+      <label class="toggle"><input type="checkbox" id="chk" onchange="document.getElementById('analise').style.display = this.checked ? 'grid' : 'none'"> Mostrar análise do invariante</label>
+      <dl class="status" id="analise" style="display:none">
+        <dt>Distância do vazio ao canto</dt><dd id="dist">0</dd>
+        <dt>Invariante</dt><dd id="invar"></dd>
+        <dt>Tem solução?</dt><dd id="solvable"></dd>
+      </dl>
+      <p id="msg" role="status"></p>
+    </div>
+    <div class="panel">
+      <h2>Histórico de transposições</h2>
+      <div id="log"></div>
+    </div>
+  </div>
+</section>
+
+<section id="explicacao-tab" class="tab-content" role="tabpanel" aria-labelledby="t2">
+<article class="article">
+  <h2>A álgebra por trás do tabuleiro</h2>
+  <p class="lead">Cada movimento do jogo é uma transposição, e o sinal de uma permutação só pode ser alterado pelo número de transposições que a compõem. Isso basta para provar que algumas configurações nunca são alcançadas.</p>
+
+  <h3>1. O tabuleiro como permutação</h3>
+  <p>Numere as posições de 1 a 16, linha por linha, e trate o espaço vazio como a peça 16.</p>
+  <div class="pos" aria-label="Numeração das posições">
+    <span>1</span><span>2</span><span>3</span><span>4</span>
+    <span>5</span><span>6</span><span>7</span><span>8</span>
+    <span>9</span><span>10</span><span>11</span><span>12</span>
+    <span>13</span><span>14</span><span>15</span><span class="v">16</span>
+  </div>
+  <p class="cap">Posições do tabuleiro. A posição 16 (tracejada) é onde o vazio fica no jogo resolvido.</p>
+  <div class="box"><b>Definição</b>
+    <p>Um estado do jogo é uma bijeção <span class="m">σ : {1,…,16} → {1,…,16}</span>, em que <span class="m">σ(i)</span> é a peça na posição <span class="m">i</span>. O estado resolvido é a identidade.</p>
+  </div>
+  <p>O <b>vetor de estado</b> mostrado no simulador é a lista <span class="m">(σ(1), σ(2), …, σ(16))</span>, com <span class="m">_</span> no lugar do 16.</p>
+
+  <h3>2. Mover uma peça é aplicar uma transposição</h3>
+  <p>Se o vazio está na posição <span class="m">q</span> e você move a peça da posição vizinha <span class="m">p</span>, o conteúdo das posições <span class="m">p</span> e <span class="m">q</span> é trocado. Isso é a transposição <span class="m">(p ⇄ q)</span>, que o histórico registra:</p>
+  <div class="eq"><i>σ′</i> = <i>σ</i> ∘ (<i>p</i> ⇄ <i>q</i>)</div>
+  <div class="box thm"><b>Fato</b>
+    <p>Toda transposição tem sinal <span class="m">−1</span>, e o sinal é multiplicativo: <span class="m">sgn(αβ) = sgn(α)·sgn(β)</span>. Logo, <b>cada movimento troca o sinal de σ</b>. O sinal de σ coincide com a paridade do número de inversões do vetor de estado.</p>
+  </div>
+  <p>Repare que o vazio conta como 16. Se ele fosse ignorado na contagem, um movimento horizontal não mudaria o número de inversões, e a regra acima pareceria falhar.</p>
+
+  <h3>3. O símbolo ∘ e a composição acumulada</h3>
+  <p>O símbolo <span class="m">∘</span> indica composição de funções, aplicada da <b>direita para a esquerda</b>. O histórico escreve a cadeia</p>
+  <div class="eq"><i>T</i> = τ<sub><i>n</i></sub> ∘ … ∘ τ<sub>2</sub> ∘ τ<sub>1</sub></div>
+  <p>em que <span class="m">τ₁</span> é o primeiro movimento. Cada clique acrescenta uma transposição <b>à esquerda</b>, porque é a ação mais recente. A permutação <span class="m">T</span> diz para onde foi o conteúdo de cada posição: o que estava na posição <span class="m">i</span> está agora em <span class="m">T(i)</span>.</p>
+  <div class="box"><b>Exemplo</b>
+    <p>No início (vazio em 16, peça 14 em 15), mova a peça 14 para a posição 16 e depois a peça 11 para a posição 15:</p>
+    <div class="eq">(11 ⇄ 15) ∘ (15 ⇄ 16)</div>
+    <p>Aplicando da direita para a esquerda: 15 → 16, 16 → 15 → 11 e 11 → 15. O resultado é o 3-ciclo <span class="m">(11 15 16)</span>, de sinal <span class="m">+1</span>, o que combina com duas transposições. Note que a segunda transposição sempre envolve a posição onde o vazio ficou, aqui a 15.</p>
+  </div>
+
+  <h3>4. O caminho do vazio</h3>
+  <p>Cada movimento desloca o vazio uma casa na horizontal ou na vertical, e isso muda a paridade de <span class="m">linha + coluna</span> da sua posição. Seja</p>
+  <div class="eq"><i>d</i> = (4 − linha) + (4 − coluna)</div>
+  <p>a distância do vazio ao canto inferior direito. Então <span class="m">d</span> muda de paridade a cada movimento, assim como <span class="m">sgn(σ)</span>.</p>
+  <div class="box thm"><b>Teorema (invariante)</b>
+    <p>Em qualquer sequência de movimentos, o produto</p>
+    <div class="eq" style="margin:.5em 0">sgn(σ) · (−1)<sup><i>d</i></sup></div>
+    <p>permanece constante. No simulador, marque <i>Mostrar análise do invariante</i> para ver esse valor.</p>
+  </div>
+  <div class="box proof"><b>Demonstração</b>
+    <p>Um movimento multiplica <span class="m">sgn(σ)</span> por <span class="m">−1</span> e também multiplica <span class="m">(−1)<sup>d</sup></span> por <span class="m">−1</span>. O produto fica multiplicado por <span class="m">(−1)² = +1</span>. ∎</p>
+  </div>
+
+  <h3>5. Por que o início do simulador não tem solução</h3>
+  <p>No tabuleiro inicial (…, 13, 15, 14, _), o único par fora de ordem é <span class="m">15 &gt; 14</span>. Há <b>1 inversão</b>, então <span class="m">sgn(σ) = −1</span>. O vazio está no canto, com <span class="m">d = 0</span>. O invariante vale
+  <span class="badge bg-impar">−1</span>.</p>
+  <p>O tabuleiro resolvido tem 0 inversões, <span class="m">sgn = +1</span>, e o vazio no canto (<span class="m">d = 0</span>). Seu invariante vale <span class="badge bg-par">+1</span>.</p>
+  <p>Como o invariante nunca muda, <b>nenhuma sequência de movimentos leva um estado ao outro</b>.</p>
+  <div class="box thm"><b>Consequência</b>
+    <p>Uma configuração tem solução se, e somente se, seu invariante vale <span class="m">+1</span>. Isso vale para exatamente metade das <span class="m">16!</span> configurações, ou seja, <span class="m">16!/2 = 10 461 394 944 000</span> (Johnson e Story, 1879). Em linguagem de grupos: com o vazio de volta ao canto, os movimentos geram o grupo alternado <span class="m">A₁₅</span> das peças.</p>
+  </div>
+
+  <h3>Para discutir em sala</h3>
+  <ul class="disc">
+    <li>Use o modo Treino, embaralhe, marque <i>Mostrar análise do invariante</i> e confira que ele permanece em +1 durante todo o jogo.</li>
+    <li>Use o modo Desafio e tente ordenar o tabuleiro. O que o invariante diz antes de você tentar?</li>
+    <li>Mova o vazio em volta de um bloco 2×2 e volte ao canto. Quantos movimentos foram? Que permutação das peças resultou?</li>
+  </ul>
+</article>
+</section>
+</main>
+
+<script>
+const IMP = [1,2,3,4,5,6,7,8,9,10,11,12,13,15,14,0];
+const SOL = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0];
+let board, moveCount, chain, hist = [];
+
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(function(t){ t.classList.toggle('active', t.id === id); });
+  document.querySelectorAll('.tab-btn').forEach(function(b){ b.setAttribute('aria-selected', b === btn); });
+}
+
+function neighbors(i) {
+  const r = Math.floor(i / 4), c = i % 4, out = [];
+  if (r > 0) out.push(i - 4);
+  if (r < 3) out.push(i + 4);
+  if (c > 0) out.push(i - 1);
+  if (c < 3) out.push(i + 1);
+  return out;
+}
+
+function badge(par, text) {
+  return '<span class="badge ' + (par ? 'bg-par' : 'bg-impar') + '">' + text + '</span>';
+}
+
+function stats() {
+  const a = board.map(function(v){ return v === 0 ? 16 : v; });
+  let inv = 0;
+  for (let i = 0; i < 16; i++) for (let j = i + 1; j < 16; j++) if (a[i] > a[j]) inv++;
+  const e = board.indexOf(0);
+  const d = (3 - Math.floor(e / 4)) + (3 - e % 4);
+  const sign = inv % 2 === 0 ? 1 : -1;
+  const invariant = sign * (d % 2 === 0 ? 1 : -1);
+  return { inv: inv, sign: sign, d: d, invariant: invariant };
+}
+
+function render() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  board.forEach(function(v, i) {
+    const b = document.createElement('button');
+    b.className = 'cell' + (v === 0 ? ' empty' : '');
+    b.textContent = v === 0 ? '' : v;
+    b.setAttribute('aria-label', v === 0 ? 'Espaço vazio' : 'Peça ' + v);
+    if (v === 0) b.tabIndex = -1;
+    b.onclick = function(){ tryMove(i); };
+    grid.appendChild(b);
+  });
+  const s = stats();
+  document.getElementById('state-vector').textContent = '(' + board.map(function(v){ return v === 0 ? '_' : v; }).join(', ') + ')';
+  document.getElementById('inv-count').textContent = s.inv;
+  document.getElementById('perm-sign').innerHTML = badge(s.sign === 1, s.sign === 1 ? 'Par (+1)' : 'Ímpar (−1)');
+  document.getElementById('dist').textContent = s.d;
+  document.getElementById('invar').innerHTML = badge(s.invariant === 1, (s.invariant === 1 ? '+1' : '−1'));
+  document.getElementById('solvable').textContent = s.invariant === 1 ? 'Sim' : 'Não';
+  document.getElementById('btn-undo').disabled = hist.length === 0;
+  const solved = board.every(function(v, i){ return v === SOL[i]; });
+  document.getElementById('msg').textContent = solved ? 'Resolvido! O tabuleiro está ordenado.' : '';
+}
+
+function tryMove(i) {
+  const e = board.indexOf(0);
+  if (neighbors(e).indexOf(i) < 0) return;
+  hist.push({ i: i, e: e, chain: chain });
+  moveCount++;
+  const piece = board[i];
+  const t = '(' + (i + 1) + ' ⇄ ' + (e + 1) + ')';
+  chain = chain === '' ? t : t + ' ∘ ' + chain;
+  board[e] = piece;
+  board[i] = 0;
+  render();
+  logMove(piece, t, stats());
+}
+
+function logMove(piece, t, s) {
+  const log = document.getElementById('log');
+  const first = log.querySelector('.empty-log');
+  if (first) first.remove();
+  const el = document.createElement('div');
+  el.className = 'log-entry';
+  el.innerHTML = '<b>Movimento ' + moveCount + ':</b> peça ' + piece + ' ' + badge(s.sign === 1, s.sign === 1 ? 'Par' : 'Ímpar') +
+    '<br>Transposição: <code>' + t + '</code> · inversões: ' + s.inv +
+    '<br>Composição: <code>' + chain + '</code>';
+  log.insertBefore(el, log.firstChild);
+}
+
+function undo() {
+  if (hist.length === 0) return;
+  const h = hist.pop();
+  board[h.i] = board[h.e];
+  board[h.e] = 0;
+  moveCount--;
+  chain = h.chain;
+  const log = document.getElementById('log');
+  const entry = log.querySelector('.log-entry');
+  if (entry) entry.remove();
+  if (hist.length === 0) log.innerHTML = '<p class="empty-log">Clique em uma peça vizinha ao vazio para começar.</p>';
+  render();
+}
+
+function reset(shuffle) {
+  board = (document.getElementById('modo').value === 'imp' ? IMP : SOL).slice();
+  moveCount = 0;
+  chain = '';
+  hist = [];
+  document.getElementById('log').innerHTML = '<p class="empty-log">Clique em uma peça vizinha ao vazio para começar.</p>';
+  if (shuffle) {
+    let last = -1;
+    for (let k = 0; k < 80; k++) {
+      const e = board.indexOf(0);
+      const opts = neighbors(e).filter(function(x){ return x !== last; });
+      const x = opts[Math.floor(Math.random() * opts.length)];
+      board[e] = board[x];
+      board[x] = 0;
+      last = e;
+    }
+  }
+  render();
+}
+
+document.getElementById('modo').onchange = function(){ reset(false); };
+reset(false);
+</script>
+</body>
+</html>
